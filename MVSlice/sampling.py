@@ -49,7 +49,7 @@ def shrink_attempt(z, log_posterior, L, R, args):
     
     
 def shrink_sample(x0, g_x0, log_posterior, w, 
-                  args=[], count_attempts=False):
+                  args=[]):
     """
     
     """
@@ -57,21 +57,12 @@ def shrink_sample(x0, g_x0, log_posterior, w,
     _x0 = np.atleast_1d(np.asarray(x0))
     L, R = place_hyperrect(_x0, w)
     accepted = False
-    if count_attempts:
-        n_attempts = 0
+    n_attempts = 0
     while not accepted:
-        if count_attempts:
-            n_attempts += 1
-            
-        x1, g_x1, accept = shrink_attempt(z, log_posterior, L, R, args)
-        if accept:
-            accepted = True
-        else:
-            L, R = shrink_hyperrect(_x0, x1, L, R)
-    if count_attempts:
-        return x1, g_x1, n_attempts
-    else:
-        return x1, g_x1
+        n_attempts += 1
+        x1, g_x1, accepted = shrink_attempt(z, log_posterior, L, R, args)
+        L, R = shrink_hyperrect(_x0, x1, L, R)
+    return x1, g_x1, n_attempts
 
     
 def draw_crumb(x0, mean, sigma, iteration):
@@ -95,7 +86,7 @@ def crumb_attempt(z, log_posterior, mean, sigma, args):
 
 
 def crumb_sample(x0, g_x0, log_posterior, sigma, 
-                 args=[], count_attempts=False):
+                 args=[]):
     """
 
     """
@@ -109,7 +100,57 @@ def crumb_sample(x0, g_x0, log_posterior, sigma,
         mean = draw_crumb(_x0, mean, sigma, n_attempts)
         x1, g_x1, accepted = crumb_attempt(z, log_posterior, mean, 
                                  sigma/np.sqrt(n_attempts), args)
-    if count_attempts:
-        return x1, g_x1, n_attempts
-    else:
-        return x1, g_x1
+    return x1, g_x1, n_attempts
+
+
+def double_dt(x0, z, w, dim, log_conditional, args):
+    xL = x0.copy()
+    xR = x0.copy()
+    uR = np.random.rand()
+    uL = uR - 1
+    xL[dim] = x0[dim] + uL*w
+    xR[dim] = x0[dim] + uR*w
+    g_XL = log_conditional(x0, *args)
+    g_XR = log_conditional(x0, *args)
+    while (g_XL > z) or (g_XR > z):
+        uR *= 2
+        uL *= 2
+        xL[dim] = x0[dim] + uL*w
+        xR[dim] = x0[dim] + uR*w
+        g_XL = log_conditional(xL, *args)
+        g_XR = log_conditional(xR, *args)
+    L = x0[dim] + uL*w
+    R = x0[dim] + uR*w
+    return L, R
+
+
+def shrink_dt_attempt(x0, z, dim, log_conditional, L, R, args):
+    x1 = x0.copy()
+    x1[dim] = np.random.uniform(L, R)
+    g_x1 = log_conditional(x1, *args)
+    accept = (g_x1 > z)
+    return x1, accept
+
+
+def shrink_dt_sample(x0, log_conditionals, w, 
+                         args):
+    _x0 = np.atleast_1d(np.asarray(x0)).copy()
+    ndim = _x0.size
+    n_attempts = 0
+    for dim in range(ndim):
+        log_conditional = log_conditionals[dim]
+        _args = args[dim]
+        g_x0 = log_conditional(_x0, *_args)
+        z = draw_slice_level(g_x0)
+        L, R = double_dt(_x0, z, w[dim], dim, log_conditional, _args)
+        accepted = False
+        while not accepted:
+            n_attempts += 1
+            x1, accepted = shrink_dt_attempt(_x0, z, dim, log_conditional,
+                                             L, R, _args)
+            if x1[dim] < x0[dim]:
+                L = x1[dim]
+            else:
+                R = x1[dim]
+        _x0 = x1.copy()
+    return _x0, n_attempts
