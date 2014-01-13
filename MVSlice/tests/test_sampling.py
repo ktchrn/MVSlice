@@ -32,6 +32,18 @@ def test_place_hyperrect():
     assert_allclose(R-L, w)
     assert (L <= x0).all()
     assert (R >= x0).all()
+
+
+def test_stochastic_doubling_hyperrect():
+    log_posterior = log_5d_standard_normal
+    w = np.random.uniform(0.5, 2, 5)
+    x0 = np.random.normal(0, 1, 5)
+    g_x0 = log_posterior(x0)
+    z = s.draw_slice_level(g_x0)
+    L, R = s.stochastic_doubling_hyperrect(x0, z, w, log_posterior, [])
+    assert (L <= x0).all()
+    assert (R >= x0).all()
+    assert (log_posterior(R) < z)
     
 
 def test_shrink_hyperrect():

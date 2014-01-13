@@ -39,6 +39,16 @@ def test_shrink_md():
     assert sampler.samples.shape[0] == 503    
 
     
+def test_shrink_dbl_md():
+    x0 = np.random.normal(0, 1, 5)
+    w = 2.5
+    sampler = SimultaneousSampler(5, log_five_standard_gaussians, 
+                           w, method='shrink_sd')
+    sampler.run(x0, 500)
+    sampler.run(sampler.samples[-1,:], 3)
+    assert sampler.samples.shape[0] == 503
+    
+    
 def test_crumb_1d():
     x0 = 0.1
     sigma = 2.5

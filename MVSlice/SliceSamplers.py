@@ -1,4 +1,4 @@
-from .sampling import shrink_sample, crumb_sample, shrink_dt_sample
+from .sampling import shrink_sample, crumb_sample, shrink_dt_sample, shrink_sd_sample
 
 import numpy as np
 
@@ -55,6 +55,8 @@ class SimultaneousSampler(SliceSampler):
             self.sample = shrink_sample
         elif method == 'crumb':
             self.sample = crumb_sample
+        elif method == 'shrink_sd':
+            self.sample = shrink_sd_sample
 
         self.samples = np.atleast_2d(np.empty([1, self.ndim]))
         self.log_posteriors = np.empty([1])

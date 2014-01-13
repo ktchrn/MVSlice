@@ -23,7 +23,28 @@ def place_hyperrect(x0, w):
     L = x0 - U*w
     R = L + w
     return L, R
-    
+
+
+def stochastic_doubling_hyperrect(x0, z, w, log_posterior, args):
+    """
+    Double until a randomly chosen point within the hyperrectangle
+    falls below the slice
+    """
+    ndim = x0.size
+    uR = np.random.rand(ndim)
+    uL = uR - 1
+    L = x0 + uL*w
+    R = x0 + uR*w
+    rand_interior = np.random.uniform(L, R, ndim)
+    g_rand_interior = log_posterior(rand_interior, *args)
+    while g_rand_interior > z:
+        w *= 2
+        L = x0 + uL*w
+        R = x0 + uR*w
+        rand_interior = np.random.uniform(L, R, ndim)
+        g_rand_interior = log_posterior(rand_interior, *args)
+    return L, R
+
 
 def shrink_hyperrect(x0, x1, L, R):
     """
@@ -56,6 +77,23 @@ def shrink_sample(x0, g_x0, log_posterior, w,
     z = draw_slice_level(g_x0)
     _x0 = np.atleast_1d(np.asarray(x0))
     L, R = place_hyperrect(_x0, w)
+    accepted = False
+    n_attempts = 0
+    while not accepted:
+        n_attempts += 1
+        x1, g_x1, accepted = shrink_attempt(z, log_posterior, L, R, args)
+        L, R = shrink_hyperrect(_x0, x1, L, R)
+    return x1, g_x1, n_attempts
+
+
+def shrink_sd_sample(x0, g_x0, log_posterior, w, 
+                  args=[]):
+    """
+    
+    """
+    z = draw_slice_level(g_x0)
+    _x0 = np.atleast_1d(np.asarray(x0))
+    L, R = stochastic_doubling_hyperrect(_x0, z, w, log_posterior, args)
     accepted = False
     n_attempts = 0
     while not accepted:
